@@ -1,122 +1,124 @@
-FROM debian:jessie
+FROM php:5.6.32-fpm
 
-# 定义软件版本，编译工具，依赖等变量
-ENV PHP_VERSION 5.6.32
-ENV BUILD_TOOLS m4 \
-               autoconf \
-               autoconf2.13 \
-               openssl \
-               wget \
-               gcc \
-               make
+COPY ./sources.list.jessie /etc/apt/sources.list
 
-ENV BUILD_DEPS libcurl4-gnutls-dev \
-               libxml2-dev \
-               zlib1g-dev \
-               libpcre3-dev \
-               libjpeg-dev \
-               libpng12-dev \
-               libfreetype6-dev \
-               libmhash-dev \
-               libmcrypt-dev \
-               libssl-dev \
-               libtool
+# Extensions: ctype, dom, fileinfo, ftp, hash, iconv, json, pdo, pdo_sqlite, session,
+# tokenizer, simplexml, xml, xmlreader, xmlwriter and phar are bundled and compiled into
+# PHP by default. If missing, install them directly by `docker-php-ext-install extension_name`
 
-ENV PHP_LOCATION /usr/local/php
-ENV BUILD_ARG   --prefix=${PHP_LOCATION} \
-                --with-config-file-path=${PHP_LOCATION}/etc \
-                --enable-fpm \
-                --enable-bcmath \
-                --with-pdo_sqlite \
-                --with-gettext \
-                --with-iconv \
-                --enable-ftp \
-                --with-sqlite3 \
-                --enable-mbstring \
-                --enable-sockets \
-                --enable-zip \
-                --enable-soap \
-                --with-openssl \
-                --with-zlib \
-                --with-curl \
-                --with-gd \
-                --with-jpeg-dir \
-                --with-png-dir \
-                --with-freetype-dir \
-                --with-mcrypt \
-                --with-mhash \
-                --with-mysql=mysqlnd \
-                --with-mysqli=mysqlnd \
-                --with-pdo-mysql=mysqlnd \
-                --without-pear \
-                --with-libdir=lib64 \
-                --enable-opcache \
-                --disable-cgi
-
-ENV SRC_DIR /opt/php
-
-WORKDIR ${SRC_DIR}
-
-# 开始编译安装php
+# Notice:
+# 1. Mcrypt was DEPRECATED in PHP 7.1.0, and REMOVED in PHP 7.2.0.
+# 2. opcache requires PHP version >= 7.0.0.
+# 3. soap requires libxml2-dev.
+# 4. xml, xmlrpc, wddx require libxml2-dev and libxslt-dev.
+# 5. Line `&& :\` is just for better reading and do nothing.
 RUN apt-get update \
-    && apt-get -y --no-install-recommends install ${BUILD_DEPS} ${BUILD_TOOLS} \
-    && wget http://php.net/distributions/php-${PHP_VERSION}.tar.gz \
-    && tar xf php-${PHP_VERSION}.tar.gz \
-    && cd php-${PHP_VERSION} \
-    && ln -s /usr/lib/x86_64-linux-gnu/libssl.so /usr/lib/libssl.so \
-    && ln -s /usr/lib /usr/lib64 \
-    && ./configure ${BUILD_ARG} \
-    && make -j$(nproc) \
-    && make install \
-    && cp php.ini-production ${PHP_LOCATION}/etc/php.ini \
-    && cp ${PHP_LOCATION}/etc/php-fpm.conf.default ${PHP_LOCATION}/etc/php-fpm.conf \
-    && rm -rf ${SRC_DIR} \
-    && apt-get purge -y --auto-remove ${BUILD_TOOLS} \
-    && rm -rf /var/lib/apt/lists/* 
+    && apt-get install -y libfreetype6-dev libjpeg62-turbo-dev libpng-dev \
+    && docker-php-ext-configure gd --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/ \
+    && docker-php-ext-install gd \
+    && :\
+    && apt-get install -y libicu-dev \
+    && docker-php-ext-install intl \
+    && :\
+    && apt-get install -y libxml2-dev \
+    && apt-get install -y libxslt-dev \
+    && docker-php-ext-install soap \
+    && docker-php-ext-install xsl \
+    && docker-php-ext-install xmlrpc \
+    && docker-php-ext-install wddx \
+    && :\
+    && apt-get install -y libbz2-dev \
+    && docker-php-ext-install bz2 \
+    && :\
+    && docker-php-ext-install zip \
+    && docker-php-ext-install pcntl \
+    && docker-php-ext-install pdo_mysql \
+    && docker-php-ext-install mysqli \
+    && docker-php-ext-install mbstring \
+    && docker-php-ext-install exif \
+    && docker-php-ext-install bcmath \
+    && docker-php-ext-install calendar \
+    && docker-php-ext-install sockets \
+    && docker-php-ext-install gettext \
+    && docker-php-ext-install shmop \
+    && docker-php-ext-install sysvmsg \
+    && docker-php-ext-install sysvsem \
+    && docker-php-ext-install sysvshm \
+    && docker-php-ext-install opcache
+    #&& docker-php-ext-install pdo_firebird \
+    #&& docker-php-ext-install pdo_dblib \
+    #&& docker-php-ext-install pdo_oci \
+    #&& docker-php-ext-install pdo_odbc \
+    #&& docker-php-ext-install pdo_pgsql \
+    #&& docker-php-ext-install pgsql \
+    #&& docker-php-ext-install oci8 \
+    #&& docker-php-ext-install odbc \
+    #&& docker-php-ext-install dba \
+    #&& docker-php-ext-install interbase \
+    #&& :\
+    #&& apt-get install -y libmcrypt-dev \
+    #&& docker-php-ext-install mcrypt \
+    #&& :\
+    #&& apt-get install -y curl \
+    #&& apt-get install -y libcurl3 \
+    #&& apt-get install -y libcurl4-openssl-dev \
+    #&& docker-php-ext-install curl \
+    #&& :\
+    #&& apt-get install -y libreadline-dev \
+    #&& docker-php-ext-install readline \
+    #&& :\
+    #&& apt-get install -y libsnmp-dev \
+    #&& apt-get install -y snmp \
+    #&& docker-php-ext-install snmp \
+    #&& :\
+    #&& apt-get install -y libpspell-dev \
+    #&& apt-get install -y aspell-en \
+    #&& docker-php-ext-install pspell \
+    #&& :\
+    #&& apt-get install -y librecode0 \
+    #&& apt-get install -y librecode-dev \
+    #&& docker-php-ext-install recode \
+    #&& :\
+    #&& apt-get install -y libtidy-dev \
+    #&& docker-php-ext-install tidy \
+    #&& :\
+    #&& apt-get install -y libgmp-dev \
+    #&& ln -s /usr/include/x86_64-linux-gnu/gmp.h /usr/include/gmp.h \
+    #&& docker-php-ext-install gmp \
+    #&& :\
+    #&& apt-get install -y postgresql-client \
+    #&& apt-get install -y mysql-client \
+    #&& :\
+    #&& apt-get install -y libc-client-dev \
+    #&& docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
+    #&& docker-php-ext-install imap \
+    #&& :\
+    #&& apt-get install -y libldb-dev \
+    #&& apt-get install -y libldap2-dev \
+    #&& docker-php-ext-configure ldap --with-libdir=lib/x86_64-linux-gnu \
+    #&& docker-php-ext-install ldap \
 
+# Composer
+#RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin/ --filename=composer \
 
-WORKDIR ${PHP_LOCATION}/etc/
+# Install extension using pecl
+# Notice: if pecl install get error
+#    `No releases available for package "pecl.php.net/xxx"`
+# or
+#    `Package "xxx" does not have REST xml available`
+# Please turn on proxy (The proxy IP may be docker host IP or others):
+RUN pear config-set http_proxy http://10.0.75.1:1080
 
-# 配置php-fpm，即使用sed工具编辑php-fpm.conf和php.ini文件，这里的php-fpm相关配置命令不与上面的编译命令合在一起来减小层数是因为
-# 配置文件可能会改动比较多，这样分开当配置文件更改时可以直接使用缓存跳过编译步骤，加快构建速度。
-RUN set_php_variable(){ \
-        local key=$1; \
-        local value=$2; \
-        if grep -q -E "^$key\s*=" php.ini;then \
-            sed -i -r "s#^$key\s*=.*#$key=$value#" php.ini; \
-        else \
-            sed -i -r "s#;\s*$key\s*=.*#$key=$value#" php.ini; \
-        fi; \
-        if ! grep -q -E "^$key\s*=" php.ini;then \
-            echo "$key=$value" >> php.ini; \
-        fi; \
-    } \
-    && BASE_DIR=/home/docker/php \
-    && set_php_variable disable_functions "dl,eval,assert,exec,popen,system,passthru,shell_exec,escapeshellarg,escapeshellcmd,proc_close,proc_open" \
-    && set_php_variable expose_php Off \
-    && set_php_variable error_log ${BASE_DIR}/php_errors.log \
-    && set_php_variable request_order  "CGP" \
-    && set_php_variable cgi.fix_pathinfo 0 \
-    && set_php_variable short_open_tag on \
-    && set_php_variable date.timezone Asia/Chongqing \
-    && sed -i 's/^user =.*/user = www-data/' php-fpm.conf \
-    && sed -i 's/^group =.*/group = www-data/' php-fpm.conf \
-    && sed -i "s#;slowlog = log/\$pool.log.slow#slowlog = ${BASE_DIR}/\$pool.log.slow#" php-fpm.conf \
-    && sed -i 's/;request_slowlog_timeout = 0/request_slowlog_timeout = 5/' php-fpm.conf \
-    && sed -i 's/^pm.max_children.*/pm.max_children =20/' php-fpm.conf \
-    && sed -i 's/^pm.start_servers.*/pm.start_servers =5/' php-fpm.conf \
-    && sed -i 's/^pm.min_spare_servers.*/pm.min_spare_servers =3/' php-fpm.conf \
-    && sed -i 's/^pm.max_spare_servers.*/pm.max_spare_servers =8/' php-fpm.conf \
-    && sed -i '/\[global\]/a\daemonize =no' php-fpm.conf \
-    && sed -i 's/^listen.*/listen =0.0.0.0:9000/' php-fpm.conf \
-    && echo "[opcache]\n \
-            zend_extension=opcache.so\n \
-            opcache.memory_consumption=128\n \
-            opcache.interned_strings_buffer=8\n \
-            opcache.max_accelerated_files=4000\n \
-            opcache.revalidate_freq=60\n \
-            opcache.fast_shutdown=1 \n" >> php.ini
-
-ENTRYPOINT ["/usr/local/php/sbin/php-fpm"]
-
-EXPOSE 9000 
+RUN pecl install redis-3.1.4 \
+    && docker-php-ext-enable redis \
+    && :\
+    && pecl install xdebug-2.5.5 \
+    && docker-php-ext-enable xdebug \
+    && :\
+    && apt-get install -y libmagickwand-dev \
+    && pecl install imagick-3.4.3 \
+    && docker-php-ext-enable imagick \
+    && :\
+    && apt-get install -y libmemcached-dev zlib1g-dev \
+    && pecl install memcached-2.2.0 \
+    && docker-php-ext-enable memcached
